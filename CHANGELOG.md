@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2](https://github.com/b4nst/icmperf/compare/v1.0.1...v1.0.2) (2024-09-01)
+
+
+### Bug Fixes
+
+* add missing CI env ([a90bf25](https://github.com/b4nst/icmperf/commit/a90bf25acc4e17e2ee498c30d482037cb4269ad4))
+
 ## [1.0.1](https://github.com/b4nst/icmperf/compare/v1.0.0...v1.0.1) (2024-09-01)
 
 
