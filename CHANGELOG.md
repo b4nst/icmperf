@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/b4nst/icmperf/compare/v1.0.0...v1.0.1) (2024-09-01)
+
+
+### Bug Fixes
+
+* fix goreleaser brew stage ([43f1084](https://github.com/b4nst/icmperf/commit/43f1084160a3433a45347ece6af73a1a0e87e6f7))
+
 ## 1.0.0 (2024-09-01)
 
 
