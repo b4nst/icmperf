@@ -1,0 +1,9 @@
+# Changelog
+
+## 1.0.0 (2024-09-01)
+
+
+### Features
+
+* init implementation ([cd268fd](https://github.com/b4nst/icmperf/commit/cd268fd31a2aece52a2528cb10884fb1d165e885))
+* use iqr filtering ([765ef41](https://github.com/b4nst/icmperf/commit/765ef41bae88840a96655950c12d6fd50ac22247))
