@@ -48,3 +48,15 @@ changelog:
 
 release:
   mode: keep-exisiting
+
+brews:
+  - name: icmperf
+    repository:
+      owner: b4nst
+      name: homebrew-tap
+      branch: "icmperf-{{ .Version }}"
+      token: "{{ .Env.BREW_TAP_TOKEN }}"
+      pull_request:
+        enabled: true
+        base:
+          branch: main
