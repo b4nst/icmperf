@@ -27,6 +27,25 @@ They will also benefit from the same priority, except at the very ends of the tu
 
 So in short, `icmperf` is a good tool to get a rough idea of the performance of a network link, especially when you can't use other protocols, or don't want to bother setting up a server.
 
+## Installation
+
+### Releases
+
+Visit the [latest release page](https://github.com/b4nst/icmperf/releases/latest) and download the binary for your platform.
+
+### Go
+
+```shell
+go install github.com/b4nst/icmperf/cmd/icmperf@latest
+```
+
+### Homebrew
+
+```shell
+brew tap b4nst/homebrew-tap
+brew install icmperf
+```
+
 ## Usage
 
 ```shell
