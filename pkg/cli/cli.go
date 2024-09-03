@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"net"
 	"time"
 )
@@ -10,7 +11,7 @@ type Target net.UDPAddr
 func (t *Target) UnmarshalText(text []byte) error {
 	ip, err := net.LookupIP(string(text))
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to lookup target: %w", err)
 	}
 	t.IP = ip[0]
 	return nil

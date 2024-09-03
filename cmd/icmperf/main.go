@@ -30,7 +30,8 @@ func main() {
 		return nil
 	})
 
-	m := model.NewModel(pinger, record, (*net.UDPAddr)(&cli.Target), cli.MTU, cli.Duration)
+	peer := net.UDPAddr(cli.Target)
+	m := model.NewModel(pinger, record, &peer, cli.MTU, cli.Duration)
 	if err := pinger.Start(ctx); err != nil {
 		ktx.FatalIfErrorf(err)
 	}

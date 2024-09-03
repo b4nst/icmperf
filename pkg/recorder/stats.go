@@ -20,6 +20,11 @@ type Stats struct {
 // iqrFilter filters the data using the Interquartile Range method.
 func iqrFilter(data []float64) []float64 {
 	sort.Float64s(data)
+	if len(data) < 4 {
+		// Not enough data to filter
+		return data
+	}
+
 	q1 := data[len(data)/4]
 	q3 := data[3*len(data)/4]
 	iqr := q3 - q1
