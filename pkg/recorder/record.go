@@ -45,7 +45,7 @@ func (s *Record) PacketSent(id uint64, size int, sent time.Time) {
 	}
 }
 
-func (s *Record) PacketReceived(id uint64, received time.Time) {
+func (s *Record) PacketReceived(id uint64, size int, received time.Time) {
 	// Remove the packet from the inflight map
 	s.inlock.Lock()
 	tm, ok := s.inflight[id]
@@ -63,6 +63,7 @@ func (s *Record) PacketReceived(id uint64, received time.Time) {
 	} else {
 		// Record bandwidth ping
 		tm.Received = received
+		tm.Bytes += size
 		s.tms = append(s.tms, tm)
 	}
 }

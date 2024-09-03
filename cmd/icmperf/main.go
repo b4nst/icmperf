@@ -26,7 +26,7 @@ func main() {
 	pinger.OnRecv(func(m *icmp.Message, t time.Time) error {
 		body := m.Body.(*icmp.Echo)
 		id := uint64(body.ID)<<32 | uint64(body.Seq)
-		record.PacketReceived(id, t)
+		record.PacketReceived(id, len(body.Data), t)
 		return nil
 	})
 
