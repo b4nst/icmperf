@@ -1,42 +1,58 @@
 package main
 
 import (
-	"context"
-	"net"
-	"time"
+	"fmt"
 
 	"github.com/alecthomas/kong"
-	tea "github.com/charmbracelet/bubbletea"
-	"golang.org/x/net/icmp"
+	"github.com/prometheus-community/pro-bing"
 
 	"github.com/b4nst/icmperf/pkg/cli"
-	"github.com/b4nst/icmperf/pkg/model"
-	"github.com/b4nst/icmperf/pkg/pinger"
 	"github.com/b4nst/icmperf/pkg/recorder"
+	"github.com/b4nst/icmperf/pkg/session"
 )
 
 func main() {
 	cli := cli.CLI{}
 	ktx := kong.Parse(&cli)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
-	pinger := pinger.NewPinger(cli.BindAddr, cli.MTU, cli.Timeout)
-	record := recorder.NewRecord()
-	pinger.OnRecv(func(m *icmp.Message, t time.Time) error {
-		body := m.Body.(*icmp.Echo)
-		id := uint64(body.ID)<<32 | uint64(body.Seq)
-		record.PacketReceived(id, len(body.Data), t)
-		return nil
-	})
+	pingers := make([]*probing.Pinger, 0, len(cli.DataSizes)+1)
 
-	peer := net.UDPAddr(cli.Target)
-	m := model.NewModel(pinger, record, &peer, cli.MTU, cli.Duration)
-	if err := pinger.Start(ctx); err != nil {
+	// Latenncy pinger
+	p, err := probing.NewPinger(cli.Target)
+	ktx.FatalIfErrorf(err)
+	if cli.Duration > 0 {
+		p.Timeout = cli.Duration
+	} else {
+		p.Count = cli.Count
+	}
+	p.SetPrivileged(cli.Privileged)
+	p.Size = 24 // Minimum size
+	pingers = append(pingers, p)
+
+	// Data pingers
+	for _, ds := range cli.DataSizes {
+		p, err := probing.NewPinger(cli.Target)
 		ktx.FatalIfErrorf(err)
+		if cli.Duration > 0 {
+			p.Timeout = cli.Duration
+		} else {
+			p.Count = cli.Count
+		}
+		p.Size = ds
+		p.SetPrivileged(cli.Privileged)
+		pingers = append(pingers, p)
 	}
 
-	if _, err := tea.NewProgram(m).Run(); err != nil {
-		ktx.FatalIfErrorf(err)
+	s := session.NewSession(pingers)
+	ktx.FatalIfErrorf(s.Run())
+
+	stats := s.Statistics()
+	stat, err := recorder.ProcessStats(stats)
+	ktx.FatalIfErrorf(err)
+
+	for _, s := range stats {
+		fmt.Printf("%s\n", s)
 	}
+	fmt.Println("- - - - - - - - - - - - - - - - - - - - - - - - -")
+	fmt.Printf("%s\n", stat)
 }

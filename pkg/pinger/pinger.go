@@ -2,6 +2,7 @@ package pinger
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"sync/atomic"
@@ -19,7 +20,7 @@ type Pinger struct {
 	seq        atomic.Uint64
 	id         int
 
-	recvCb func(*icmp.Message, time.Time) error
+	recvbuf []byte
 }
 
 func NewPinger(addr string, mtu int, timeout time.Duration) *Pinger {
@@ -29,6 +30,8 @@ func NewPinger(addr string, mtu int, timeout time.Duration) *Pinger {
 		MTU:        mtu,
 		seq:        atomic.Uint64{},
 		id:         os.Getpid() & 0xffff,
+
+		recvbuf: make([]byte, mtu),
 	}
 }
 
@@ -38,44 +41,30 @@ func (p *Pinger) Start(ctx context.Context) error {
 		return err
 	}
 	p.conn = conn
-	go p.listen(ctx)
 	return nil
 }
 
-func (p *Pinger) OnRecv(cb func(*icmp.Message, time.Time) error) {
-	p.recvCb = cb
-}
-
-func (p *Pinger) listen(ctx context.Context) {
-	buf := make([]byte, p.MTU)
-	for {
-		if ctx.Err() != nil {
-			return
-		}
-		err := p.conn.SetReadDeadline(time.Now().Add(p.timeout))
-		if err != nil {
-			// TODO: log error
-			continue
-		}
-		n, _, err := p.conn.ReadFrom(buf)
-		if err != nil {
-			// TODO: log error
-			continue
-		}
-		received := time.Now()
-		parsed, err := icmp.ParseMessage(1, buf[:n])
-		if err != nil {
-			// TODO: log error
-			continue
-		}
-		if err := p.recvCb(parsed, received); err != nil {
-			// TODO: log error
-			continue
-		}
+// Reply waits for an ICMP reply and fills the message with the response.
+func (p *Pinger) Reply(message *icmp.Message) (time.Time, error) {
+	err := p.conn.SetReadDeadline(time.Now().Add(p.timeout))
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to set read deadline: %w", err)
 	}
+	n, _, err := p.conn.ReadFrom(p.recvbuf)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to read from connection: %w", err)
+	}
+	received := time.Now()
+	parsed, err := icmp.ParseMessage(1, p.recvbuf[:n])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to parse message: %w", err)
+	}
+	*message = *parsed
+
+	return received, nil
 }
 
-func (p *Pinger) Send(peer *net.UDPAddr, payload []byte) (uint64, time.Time, error) {
+func (p *Pinger) Echo(peer *net.UDPAddr, payload []byte) (uint64, time.Time, error) {
 	body := &icmp.Echo{
 		ID:   p.id,
 		Seq:  int(p.seq.Add(1)),
