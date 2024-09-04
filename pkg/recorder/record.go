@@ -1,7 +1,6 @@
 package recorder
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -61,7 +60,6 @@ func (r *Record) Stats() []*Stat {
 			rtt += packets[i].Rtt
 			localbw := float64(packets[i].Nbytes-packets[i-1].Nbytes) / (packets[i].Rtt - packets[i-1].Rtt).Seconds()
 			locallat := packets[i].Rtt.Seconds() - (float64(packets[i].Nbytes) / localbw)
-			fmt.Println(localbw, locallat)
 
 			bandwidth += localbw
 			latency += locallat

@@ -69,6 +69,52 @@ func TestIQRFilter(t *testing.T) {
 	})
 }
 
+func TestMADFilter(t *testing.T) {
+	t.Parallel()
+
+	t.Run("no outliers", func(t *testing.T) {
+		t.Parallel()
+		stats := []*Stat{
+			{Bandwidth: 1.0},
+			{Bandwidth: 2.0},
+			{Bandwidth: 3.0},
+			{Bandwidth: 4.0},
+			{Bandwidth: 5.0},
+		}
+
+		filtered, err := MADFilter(stats)
+		assert.NoError(t, err)
+		assert.ElementsMatch(t, stats, filtered)
+	})
+
+	t.Run("outliers", func(t *testing.T) {
+		t.Parallel()
+		stats := []*Stat{
+			{Bandwidth: 1.0},
+			{Bandwidth: 31.0},
+			{Bandwidth: 30.0},
+			{Bandwidth: 35.0},
+			{Bandwidth: 29.0},
+			{Bandwidth: 100.0},
+		}
+
+		filtered, err := MADFilter(stats)
+		assert.NoError(t, err)
+		assert.Len(t, filtered, len(stats)-2)
+		assert.NotContains(t, filtered, &Stat{Bandwidth: 1.0})
+		assert.NotContains(t, filtered, &Stat{Bandwidth: 100.0})
+	})
+
+	t.Run("error", func(t *testing.T) {
+		t.Parallel()
+		stats := []*Stat{}
+		_, err := MADFilter(stats)
+		if ok := assert.Error(t, err); ok {
+			assert.EqualError(t, err, "Input must not be empty.")
+		}
+	})
+}
+
 func TestSanitize(t *testing.T) {
 	t.Parallel()
 	stats := []*Stat{
@@ -80,8 +126,7 @@ func TestSanitize(t *testing.T) {
 	}
 
 	sanitized := Sanitize(stats)
-	assert.Len(t, sanitized, 3)
-	assert.NotContains(t, sanitized, &Stat{Bandwidth: 0.0})
+	assert.Len(t, sanitized, 4)
 	assert.NotContains(t, sanitized, &Stat{Bandwidth: -1.0})
 }
 
@@ -99,7 +144,6 @@ func TestProcessStats(t *testing.T) {
 	t.Run("stats", func(t *testing.T) {
 		stats := []*Stat{
 			{Bandwidth: -30.0},
-			{Bandwidth: 0.0},
 			{Bandwidth: 1.0},
 			{Bandwidth: 100.0},
 			{Bandwidth: 30.0, Latency: 1 * time.Second, Rtt: 1 * time.Second, Seq: 1},

@@ -2,8 +2,10 @@ package recorder
 
 import (
 	"fmt"
+	"math"
 	"time"
 
+	"github.com/dustin/go-humanize"
 	"github.com/montanaflynn/stats"
 )
 
@@ -19,15 +21,16 @@ type Stat struct {
 	Seq int
 }
 
+func (s *Stat) String() string {
+	return fmt.Sprintf("Latency: %s, Rtt: %s, Bandwidth: %s/s", s.Latency, s.Rtt, humanize.Bytes(uint64(s.Bandwidth)))
+}
+
 func ProcessStats(stats []*Stat) (*Stat, error) {
 	sanitized := Sanitize(stats)
-	fmt.Println(sanitized)
-	// Apply IQR filter
-	sanitized, err := IQRFilter(sanitized)
+	sanitized, err := MADFilter(sanitized)
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(sanitized)
 	// Return average
 	return Average(sanitized), nil
 }
@@ -35,11 +38,42 @@ func ProcessStats(stats []*Stat) (*Stat, error) {
 func Sanitize(stats []*Stat) []*Stat {
 	sanitized := make([]*Stat, 0, len(stats))
 	for _, stat := range stats {
-		if stat.Bandwidth > 0 {
+		if stat.Bandwidth >= 0 {
 			sanitized = append(sanitized, stat)
 		}
 	}
 	return sanitized
+}
+
+func MADFilter(s []*Stat) ([]*Stat, error) {
+	bandwidths := make(stats.Float64Data, 0, len(s))
+	for _, stat := range s {
+		bandwidths = append(bandwidths, stat.Bandwidth)
+	}
+
+	mad, err := stats.MedianAbsoluteDeviation(bandwidths)
+	if err != nil {
+		return nil, err
+	}
+	if mad == 0 { // If all bandwidths are identical, return the input unchanged
+		return s, nil
+	}
+
+	median, err := bandwidths.Median()
+	if err != nil {
+		return nil, err
+	}
+	zthresh := 3.5
+	adjust := 0.6745
+
+	filtered := make([]*Stat, 0, len(s))
+	for _, stat := range s {
+		zscore := adjust * math.Abs(stat.Bandwidth-median) / mad
+		if zscore < zthresh {
+			filtered = append(filtered, stat)
+		}
+	}
+	return filtered, nil
 }
 
 func IQRFilter(s []*Stat) ([]*Stat, error) {
