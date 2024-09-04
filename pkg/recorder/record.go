@@ -1,111 +1,78 @@
 package recorder
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
-	"github.com/emirpasic/gods/maps/treemap"
-	"github.com/emirpasic/gods/utils"
+	"github.com/prometheus-community/pro-bing"
 )
 
-type TransferMetric struct {
-	Received time.Time
-	Sent     time.Time
-	Bytes    int
-}
-
+// Record is a record of packets.
 type Record struct {
-	inflight map[uint64]*TransferMetric
-
-	latencies *treemap.Map
-	tms       []*TransferMetric
-
-	inlock   sync.Mutex
-	recvlock sync.Mutex
+	// packets is a map of sequence numbers to slices of recorded packets.
+	packets map[int][]*probing.Packet
+	// canStat is a slice of sequence numbers that have enough packets to be able to calculate statistics.
+	canStat []int
+	// mutex is a mutex to protect the record.
+	mutex *sync.RWMutex
 }
 
+// NewRecord creates a new record with the given number of probes.
 func NewRecord() *Record {
 	return &Record{
-		inflight:  make(map[uint64]*TransferMetric),
-		latencies: treemap.NewWith(utils.Int64Comparator),
-		tms:       []*TransferMetric{},
-
-		inlock:   sync.Mutex{},
-		recvlock: sync.Mutex{},
+		packets: make(map[int][]*probing.Packet),
+		mutex:   &sync.RWMutex{},
+		canStat: make([]int, 0, 100),
 	}
 }
 
-func (s *Record) PacketSent(id uint64, size int, sent time.Time) {
-	s.inlock.Lock()
-	defer s.inlock.Unlock()
+func (r *Record) AddPacket(p *probing.Packet) {
+	r.mutex.Lock()
+	defer r.mutex.Unlock()
 
-	s.inflight[id] = &TransferMetric{
-		Bytes: size,
-		Sent:  sent,
+	if _, ok := r.packets[p.Seq]; !ok {
+		r.packets[p.Seq] = make([]*probing.Packet, 0, 5)
+	}
+
+	r.packets[p.Seq] = append(r.packets[p.Seq], p)
+
+	if len(r.packets[p.Seq]) >= 2 {
+		r.canStat = append(r.canStat, p.Seq)
 	}
 }
 
-func (s *Record) PacketReceived(id uint64, size int, received time.Time) {
-	// Remove the packet from the inflight map
-	s.inlock.Lock()
-	tm, ok := s.inflight[id]
-	delete(s.inflight, id)
-	s.inlock.Unlock()
-	if !ok {
-		return
+func (r *Record) Stats() []*Stat {
+	completes := make([][]*probing.Packet, 0, len(r.canStat))
+
+	r.mutex.RLock()
+	for _, seq := range r.canStat {
+		completes = append(completes, r.packets[seq])
 	}
+	r.mutex.RUnlock()
 
-	s.recvlock.Lock()
-	defer s.recvlock.Unlock()
-	if tm.Bytes == 0 {
-		// Record Latency ping
-		s.latencies.Put(tm.Sent.UnixNano(), received.Sub(tm.Sent))
-	} else {
-		// Record bandwidth ping
-		tm.Received = received
-		tm.Bytes += size
-		s.tms = append(s.tms, tm)
-	}
-}
+	stats := make([]*Stat, 0, len(completes))
+	for _, packets := range completes {
+		var bandwidth, latency float64
+		var rtt time.Duration
 
-func (s *Record) Stats() *Stats {
-	s.inlock.Lock()
-	defer s.inlock.Unlock()
-	s.recvlock.Lock()
-	defer s.recvlock.Unlock()
+		rtt += packets[0].Rtt
+		for i := 1; i < len(packets); i++ {
+			rtt += packets[i].Rtt
+			localbw := float64(packets[i].Nbytes-packets[i-1].Nbytes) / (packets[i].Rtt - packets[i-1].Rtt).Seconds()
+			locallat := packets[i].Rtt.Seconds() - (float64(packets[i].Nbytes) / localbw)
+			fmt.Println(localbw, locallat)
 
-	totalLost := len(s.inflight)
-	totalPackets := totalLost + len(s.tms) + s.latencies.Size()
-
-	// Calculate bandwidths
-	bws := map[int64]float64{}
-	for _, tm := range s.tms {
-		// Find the closest latency to the current bandwidth packet
-		k, v := s.latencies.Floor(tm.Sent.UnixNano())
-		if v == nil {
-			k, v = s.latencies.Ceiling(tm.Sent.UnixNano())
-			if k == nil {
-				// No latencies recorded, skip this bandwidth packet
-				continue
-			}
+			bandwidth += localbw
+			latency += locallat
 		}
-		latency := v.(time.Duration)
-		bw := float64(tm.Bytes) / (tm.Received.Sub(tm.Sent) - latency).Seconds()
-		// Record the bandwidth if it is not NaN
-		if bw == bw {
-			bws[tm.Sent.UnixNano()] = bw
-		}
-	}
 
-	latencies := map[int64]time.Duration{}
-	s.latencies.Each(func(key interface{}, value interface{}) {
-		latencies[key.(int64)] = value.(time.Duration)
-	})
-
-	return &Stats{
-		Latencies:     latencies,
-		Bandwidths:    bws,
-		TotalSent:     totalPackets,
-		TotalReceived: totalPackets - totalLost,
+		stats = append(stats, &Stat{
+			Bandwidth: bandwidth / float64(len(packets)-1),
+			Latency:   time.Duration(latency / float64(len(packets)-1) * float64(time.Second)),
+			Rtt:       rtt,
+			Seq:       packets[0].Seq,
+		})
 	}
+	return stats
 }

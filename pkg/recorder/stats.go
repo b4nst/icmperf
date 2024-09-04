@@ -1,89 +1,80 @@
 package recorder
 
 import (
-	"sort"
+	"fmt"
 	"time"
+
+	"github.com/montanaflynn/stats"
 )
 
 // Stats contains the statistics of a transfer.
-type Stats struct {
-	// Latencies is a map latency per nanosecond.
-	Latencies map[int64]time.Duration
-	// Bandwidths is a map of bandwidth per nanosecond.
-	Bandwidths map[int64]float64
-	// TotalSent is the total number of packets sent.
-	TotalSent int
-	// TotalReceived is the total number of packets received.
-	TotalReceived int
+type Stat struct {
+	// Latency for the transfer.
+	Latency time.Duration
+	// Total time for the transfer.
+	Rtt time.Duration
+	// Bandwidth for the transfer.
+	Bandwidth float64
+	// The sequence number of the transfer.
+	Seq int
 }
 
-// iqrFilter filters the data using the Interquartile Range method.
-func iqrFilter(data []float64) []float64 {
-	sort.Float64s(data)
-	if len(data) < 4 {
-		// Not enough data to filter
-		return data
+func ProcessStats(stats []*Stat) (*Stat, error) {
+	sanitized := Sanitize(stats)
+	fmt.Println(sanitized)
+	// Apply IQR filter
+	sanitized, err := IQRFilter(sanitized)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println(sanitized)
+	// Return average
+	return Average(sanitized), nil
+}
+
+func Sanitize(stats []*Stat) []*Stat {
+	sanitized := make([]*Stat, 0, len(stats))
+	for _, stat := range stats {
+		if stat.Bandwidth > 0 {
+			sanitized = append(sanitized, stat)
+		}
+	}
+	return sanitized
+}
+
+func IQRFilter(s []*Stat) ([]*Stat, error) {
+	bandwidths := make(stats.Float64Data, 0, len(s))
+	for _, stat := range s {
+		bandwidths = append(bandwidths, stat.Bandwidth)
 	}
 
-	q1 := data[len(data)/4]
-	q3 := data[3*len(data)/4]
-	iqr := q3 - q1
-	lower := q1 - 1.5*iqr
-	upper := q3 + 1.5*iqr
+	quartiles, err := bandwidths.Quartiles()
+	if err != nil {
+		return nil, err
+	}
+	iqr := quartiles.Q3 - quartiles.Q1
 
-	lowerIndex := 0
-	for i, v := range data {
-		if v >= lower {
-			lowerIndex = i
-			break
+	lb := quartiles.Q1 - 1.5*iqr
+	ub := quartiles.Q3 + 1.5*iqr
+	filtered := make([]*Stat, 0, len(s))
+	for _, stat := range s {
+		if stat.Bandwidth >= lb && stat.Bandwidth <= ub {
+			filtered = append(filtered, stat)
 		}
 	}
 
-	upperIndex := len(data)
-	for i := len(data) - 1; i >= 0; i-- {
-		if data[i] <= upper {
-			upperIndex = i
-			break
-		}
-	}
-
-	return data[lowerIndex:upperIndex]
+	return filtered, nil
 }
 
-// mean calculates the arithmetic mean of a serie.
-func mean(data []float64) float64 {
-	var total float64
-	for _, v := range data {
-		total += v
+func Average(stats []*Stat) *Stat {
+	total := Stat{Seq: -1}
+	for _, stat := range stats {
+		total.Latency += stat.Latency
+		total.Rtt += stat.Rtt
+		total.Bandwidth += stat.Bandwidth
 	}
-	return total / float64(len(data))
-}
-
-// Bandwidth returns the bandwidth in bytes per second.
-// The serie is IQR filtered, and mean is calculated.
-func (s *Stats) Bandwidth() float64 {
-	bws := make([]float64, 0, len(s.Bandwidths))
-	for _, v := range s.Bandwidths {
-		bws = append(bws, v)
-	}
-	bws = iqrFilter(bws)
-
-	return mean(bws)
-}
-
-// Latency returns the average latency.
-// The serie is IQR filtered, and mean is calculated.
-func (s *Stats) Latency() time.Duration {
-	latencies := make([]float64, 0, len(s.Latencies))
-	for _, v := range s.Latencies {
-		latencies = append(latencies, v.Seconds())
-	}
-	latencies = iqrFilter(latencies)
-
-	return time.Duration(mean(latencies) * float64(time.Second))
-}
-
-// PacketLoss returns the percentage of packets lost.
-func (s *Stats) PacketLoss() float64 {
-	return float64(s.TotalSent-s.TotalReceived) / float64(s.TotalSent)
+	total.Latency /= time.Duration(len(stats))
+	total.Rtt /= time.Duration(len(stats))
+	total.Bandwidth /= float64(len(stats))
+	return &total
 }
