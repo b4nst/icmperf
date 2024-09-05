@@ -51,12 +51,12 @@ release:
 
 brews:
   - name: icmperf
+    directory: Formula
     repository:
       owner: b4nst
       name: homebrew-tap
       branch: "icmperf-{{ .Version }}"
       token: "{{ .Env.GITHUB_TAP_TOKEN }}"
-      directory: Formula
       pull_request:
         enabled: true
         base:
