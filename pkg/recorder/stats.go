@@ -112,3 +112,10 @@ func Average(stats []*Stat) *Stat {
 	total.Bandwidth /= float64(len(stats))
 	return &total
 }
+
+// BySeq implements sort.Interface for []*Stat based on the Seq field.
+type BySeq []*Stat
+
+func (a BySeq) Len() int           { return len(a) }
+func (a BySeq) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a BySeq) Less(i, j int) bool { return a[i].Seq < a[j].Seq }
