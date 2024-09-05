@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/b4nst/icmperf/compare/v1.1.0...v1.2.0) (2024-09-05)
+
+
+### Features
+
+* use session stats ([86d3f60](https://github.com/b4nst/icmperf/commit/86d3f603eacf6c3080d8f18c938d6d69beeb361e))
+
 ## [1.1.0](https://github.com/b4nst/icmperf/compare/v1.0.2...v1.1.0) (2024-09-05)
 
 
