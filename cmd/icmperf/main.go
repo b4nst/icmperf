@@ -16,37 +16,33 @@ func main() {
 	cli := cli.CLI{}
 	ktx := kong.Parse(&cli)
 
-	pingers := make([]*probing.Pinger, 0, len(cli.DataSizes)+1)
-
 	// Latenncy pinger
-	p, err := probing.NewPinger(cli.Target)
+	platency, err := probing.NewPinger(cli.Target)
 	ktx.FatalIfErrorf(err)
 	if cli.Duration > 0 {
-		p.Timeout = cli.Duration
+		platency.Timeout = cli.Duration
 	} else {
 		cli.Duration = time.Duration(cli.Count * int(time.Second))
-		p.Count = cli.Count
+		platency.Count = cli.Count
 	}
-	p.SetPrivileged(cli.Privileged)
-	p.Size = 24 // Minimum size
-	pingers = append(pingers, p)
+	platency.SetPrivileged(cli.Privileged)
+	platency.Size = 24 // Minimum size
 
 	// Data pingers
-	for _, ds := range cli.DataSizes {
-		p, err := probing.NewPinger(cli.Target)
-		ktx.FatalIfErrorf(err)
-		if cli.Duration > 0 {
-			p.Timeout = cli.Duration
-		} else {
-			p.Count = cli.Count
-		}
-		p.Size = ds
-		p.SetPrivileged(cli.Privileged)
-		pingers = append(pingers, p)
+	pdata, err := probing.NewPinger(cli.Target)
+	ktx.FatalIfErrorf(err)
+	if cli.Duration > 0 {
+		pdata.Timeout = cli.Duration
+	} else {
+		pdata.Count = cli.Count
 	}
+	pdata.Size = cli.DataSize
+	pdata.SetPrivileged(cli.Privileged)
+
+	pingers := []*probing.Pinger{platency, pdata}
 
 	s := session.NewSession(pingers)
-	m := model.NewModel(s, cli.Target, p.IPAddr().String(), cli.Duration+time.Second)
+	m := model.NewModel(s, cli.Target, platency.IPAddr().String(), cli.Duration+time.Second)
 
 	go func() {
 		s.Run()

@@ -25,7 +25,7 @@ type CLI struct {
 	Duration   time.Duration `help:"The duration of the test." short:"d" xor:"duration"`
 	Count      int           `help:"The number of pings to send." short:"c" default:"10" xor:"duration"`
 	Privileged bool          `help:"Use privileged ICMP sockets." default:"false" short:"p"`
-	DataSizes  []int         `help:"The size of the data to send." short:"s" default:"1024"`
+	DataSize   int           `help:"The size of the data probe to send." short:"s" default:"1024"`
 
 	Target string `arg:"" help:"The target host to ping."`
 }

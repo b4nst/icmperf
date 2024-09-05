@@ -52,23 +52,20 @@ func (r *Record) Stats() []*Stat {
 
 	stats := make([]*Stat, 0, len(completes))
 	for _, packets := range completes {
-		var bandwidth, latency float64
-		var rtt time.Duration
+		s1 := float64(packets[0].Nbytes)
+		rtt1 := packets[0].Rtt.Seconds()
+		s2 := float64(packets[1].Nbytes)
+		rtt2 := packets[1].Rtt.Seconds()
 
-		rtt += packets[0].Rtt
-		for i := 1; i < len(packets); i++ {
-			rtt += packets[i].Rtt
-			localbw := float64(packets[i].Nbytes-packets[i-1].Nbytes) / (packets[i].Rtt - packets[i-1].Rtt).Seconds()
-			locallat := packets[i].Rtt.Seconds() - (float64(packets[i].Nbytes) / localbw)
+		// Make sure smallest rtt matches with smallest size
 
-			bandwidth += localbw
-			latency += locallat
-		}
+		br := 2 * (s1 - s2) / (rtt1 - rtt2)
+		l := (rtt1 - 2*s1/br) / 2
 
 		stats = append(stats, &Stat{
-			Bandwidth: bandwidth / float64(len(packets)-1),
-			Latency:   time.Duration(latency / float64(len(packets)-1) * float64(time.Second)),
-			Rtt:       rtt,
+			Bandwidth: br,
+			Latency:   time.Duration(l * float64(time.Second)),
+			Rtt:       packets[0].Rtt + packets[1].Rtt,
 			Seq:       packets[0].Seq,
 		})
 	}

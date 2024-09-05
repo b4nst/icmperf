@@ -91,17 +91,20 @@ func TestRecord_Stats(t *testing.T) {
 	})
 
 	t.Run("2 packets stat", func(t *testing.T) {
+		latency := 12 * time.Millisecond
+		bitrate := 1000.0 // bytes per second
+
 		t.Parallel()
 		r := NewRecord()
-		p1 := &probing.Packet{Seq: 1, Rtt: 10 * time.Millisecond, Nbytes: 0}
-		p2 := &probing.Packet{Seq: 1, Rtt: 110 * time.Millisecond, Nbytes: 100}
+		p1 := &probing.Packet{Seq: 1, Nbytes: 24, Rtt: 2*latency + time.Duration(2*24/bitrate*float64(time.Second))}
+		p2 := &probing.Packet{Seq: 1, Nbytes: 124, Rtt: 2*latency + time.Duration(2*124/bitrate*float64(time.Second))}
 		r.AddPacket(p1)
 		r.AddPacket(p2)
 		stats := r.Stats()
 		assert.Len(t, stats, 1)
 		assert.Equal(t, 1, stats[0].Seq)
-		assert.InEpsilon(t, 10*time.Millisecond, stats[0].Latency, 0.0001)
-		assert.Equal(t, 120*time.Millisecond, stats[0].Rtt)
-		assert.Equal(t, 1000.0, stats[0].Bandwidth)
+		assert.InEpsilon(t, latency, stats[0].Latency, 0.0001)
+		assert.Equal(t, p1.Rtt+p2.Rtt, stats[0].Rtt)
+		assert.Equal(t, bitrate, stats[0].Bandwidth)
 	})
 }

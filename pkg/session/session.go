@@ -39,6 +39,11 @@ func (s *Session) Run() error {
 	return wg.Wait()
 }
 
-func (s *Session) Statistics() []*recorder.Stat {
-	return s.record.Stats()
+func (s *Session) Statistics() (*Statistics, error) {
+	return NewStatistics(s.pingers)
+}
+
+type StatWithSize struct {
+	*probing.Statistics
+	Bytes int
 }
