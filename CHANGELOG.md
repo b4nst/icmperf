@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.0.0](https://github.com/b4nst/icmperf/compare/v1.2.1...v2.0.0) (2024-09-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* use custom pinger
+
+### Features
+
+* add user feedback ([9e94ed2](https://github.com/b4nst/icmperf/commit/9e94ed2c53a312b620937caee6ebca5a12672703))
+* use custom pinger ([6a20426](https://github.com/b4nst/icmperf/commit/6a20426479366d1a0e46717445a92507ddf81014))
+
 ## [1.2.1](https://github.com/b4nst/icmperf/compare/v1.2.0...v1.2.1) (2024-09-05)
 
 
