@@ -33,5 +33,5 @@ func (s *Statistics) Loss() float64 {
 }
 
 func (s *Statistics) String() string {
-	return fmt.Sprintf("%s sent, %s received in %s at %s/sec\n", humanize.Bytes(uint64(s.ByteSent())), humanize.Bytes(uint64(s.ByteReceived())), s.Duration, humanize.Bytes(uint64(s.Bitrate())))
+	return fmt.Sprintf("%s sent, %s received in %s at %s/sec", humanize.Bytes(uint64(s.ByteSent())), humanize.Bytes(uint64(s.ByteReceived())), s.Duration, humanize.Bytes(uint64(s.Bitrate())))
 }
