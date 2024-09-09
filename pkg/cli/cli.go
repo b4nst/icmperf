@@ -2,30 +2,25 @@ package cli
 
 import (
 	"fmt"
+	"net"
 	"time"
 )
 
-type DataSizes []int
+type Target net.IPAddr
 
-func (ds *DataSizes) Validate() error {
-	if len(*ds) == 0 {
-		return fmt.Errorf("data sizes must have at least one element")
+func (t *Target) UnmarshalText(text []byte) error {
+	ip, err := net.LookupIP(string(text))
+	if err != nil {
+		return fmt.Errorf("lookup IP: %v", err)
 	}
 
-	for _, size := range *ds {
-		if size < 24 {
-			return fmt.Errorf("data size must be greater than 0")
-		}
-	}
+	t.IP = ip[0]
 	return nil
 }
 
 type CLI struct {
-	Timeout    time.Duration `help:"The timeout for each ping." short:"t" default:"5s"`
-	Duration   time.Duration `help:"The duration of the test." short:"d" xor:"duration"`
-	Count      int           `help:"The number of pings to send." short:"c" default:"10" xor:"duration"`
-	Privileged bool          `help:"Use privileged ICMP sockets." default:"false" short:"p"`
-	DataSize   int           `help:"The size of the data probe to send." short:"s" default:"1024"`
+	Duration time.Duration `help:"Evaluation duration." short:"t" default:"5s"`
+	Size     int           `help:"The size of the data probe to send. If 0, computed using interface MTU." short:"s" default:"0"`
 
-	Target string `arg:"" help:"The target host to ping."`
+	Target Target `arg:"" help:"The target host to ping."`
 }
